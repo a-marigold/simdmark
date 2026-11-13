@@ -1,0 +1,13 @@
+.{
+    .name = .simdmark,
+    .version = "0.0.0",
+    .fingerprint = 0xc63ba048b70faa78, // Changing this has security and trust implications.
+    .minimum_zig_version = "0.17.1",
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "LICENSE",
+        "README.md",
+    },
+}
