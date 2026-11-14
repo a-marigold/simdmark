@@ -65,3 +65,13 @@ pub const x86 = struct {
         );
     }
 };
+
+/// Returns a vector with only low nibbles of each `vec` byte.
+pub fn getLowNibbles(vec: anytype) @TypeOf(vec) {
+    return vec & @as(@TypeOf(vec), @splat(0b00001111));
+}
+
+/// Returns a vector with only high nibbles of each `vec` byte.
+pub fn getHighNibbles(vec: anytype) @TypeOf(vec) {
+    return vec >> @as(@TypeOf(vec), @splat(4));
+}
