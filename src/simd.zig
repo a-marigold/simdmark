@@ -45,6 +45,21 @@ pub const x64 = struct {
         return ~eqlToBits256(a, b);
     }
 
+    /// Does bitwise AND between `a` and `b` and returns a 64-bit mask,
+    /// where 0 is at bit indexes where `a[index] & b[index] == 0`
+    /// and 1 is at bit indexes where `a[index] & b[index] != 0`
+    pub inline fn andToBits512(a: @Vector(64, u8), b: @Vector(64, u8)) u64 {
+        var mask: u64 = undefined;
+        return asm (
+            \\ vptestmb %[b], %[a], %[mask]
+            \\ kmovq %[mask], %[result]
+            : [result] "=r" (-> u64),
+              [mask] "=k" (mask),
+            : [a] "v" (a),
+              [b] "v" (b),
+        );
+    }
+
     /// Permutates elements in `vec` based on `mask` elements.
     ///
     /// Uses only 0..4 bits (low bits) of `mask` indexes,
