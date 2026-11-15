@@ -12,40 +12,67 @@ pub fn expandVec(
 }
 
 pub const x86 = struct {
-    /// Permutates elements in `vector` based on `mask` elements.
+    /// Compares each element of the two vectors producing a mask,
+    /// where bit at the element index is set to 1 if the elements equal.
+    pub inline fn eqlToBits128(a: @Vector(16, u8), b: @Vector(16, u8)) u64 {
+        asm ("pcmpeqb %[a], %[b]"
+            : [b] "=v" (b),
+            : [a] "v" (a),
+        );
+        return vecToBits128(b);
+    }
+
+    /// Compares each element of the two vectors producing a mask,
+    /// where bit at elements' index is set to 1 if the elements don't equal.
+    pub inline fn notEqlToBits128(a: @Vector(16, u8), b: @Vector(16, u8)) u64 {
+        return ~eqlToBits128(a, b);
+    }
+
+    /// Compares each element of the two vectors producing a mask,
+    /// where bit at elements' index is set to 1 if the elements equal.
+    pub inline fn eqlToBits256(a: @Vector(32, u8), b: @Vector(32, u8)) u64 {
+        const result = asm ("vpcmpeqb %[a], %[b], %[result]"
+            : [result] "=v" (-> @Vector(32, u8)),
+            : [a] "v" (a),
+              [b] "v" (b),
+        );
+        return vecToBits256(result);
+    }
+
+    /// Compares each element of the two vectors producing a mask,
+    /// where bit at the element index is set to 1 if the elements don't equal.
+    pub inline fn notEqlToBits256(a: @Vector(32, u8), b: @Vector(32, u8)) u64 {
+        return ~eqlToBits256(a, b);
+    }
+
+    /// Permutates elements in `vec` based on `mask` elements.
     ///
     /// Uses only 0..4 bits (low bits) of `mask` indexes,
     /// and if the 7 (the highest) bit equals `1`, the `result[index]` is set to `0`.
     ///
     /// Example:
-    /// 1. First iteration - `result[0] = vector[mask[0]]`.
-    /// 2. Second - `result[1] = vector[ mask[1] ]`.
+    /// 1. First iteration - `result[0] = vec[mask[0]]`.
+    /// 2. Second - `result[1] = vec[ mask[1] ]`.
     /// 3. ...
     ///
     /// Returns the resulting vector.
-    pub inline fn shuffle128(
-        vector: @Vector(16, u8),
-        mask: @Vector(16, u8),
-    ) @TypeOf(vector) {
-        return asm ("pshufb %[mask], %[vector]" // `vector` is mutated
-            : [vector] "+v" (vector),
+    pub inline fn shuffle128(vec: @Vector(16, u8), mask: @Vector(16, u8)) @Vector(16, u8) {
+        return asm ("pshufb %[mask], %[vec]" // `vec` is mutated
+            : [vec] "+v" (vec),
             : [mask] "v" (mask),
         );
     }
 
-    /// 0..16 elements of `mask` index 0..16 elements of `vector`,
-    /// and 16..32 elements of mask index 16..32 elements of `vector`.
+    /// 0..16 elements of `mask` index 0..16 elements of `vec`,
+    /// and 16..32 elements of mask index 16..32 elements of `vec`.
     ///
     /// That is, it is like a parallel `shuffle128` for two masks and vectors.
     ///
     /// Returns the resulting vector.
-    pub inline fn shuffle256(
-        vector: @Vector(32, u8),
-        mask: @Vector(32, u8),
-    ) @TypeOf(vector) {
-        return asm ("vpshufb %[mask], %[vector], %[result]"
+    pub inline fn shuffle256(vec: @Vector(32, u8), mask: @Vector(32, u8)) @Vector(32, u8) {
+        return asm ("vpshufb %[mask], %[vec], %[result]"
             : [result] "=v" (-> @Vector(32, u8)),
-            : [vector] "v" (vector),
+            : [vec] "v" (vec),
               [mask] "v" (mask),
         );
     }
@@ -54,14 +81,29 @@ pub const x86 = struct {
     /// allowing indexing the whole 512-bit vector.
     ///
     /// Returns the resulting vector.
-    pub inline fn shuffle512(
-        vector: @Vector(64, u8),
-        mask: @Vector(64, u8),
-    ) @TypeOf(vector) {
-        return asm ("vpshufb %[mask], %[vector], %[result]"
+    pub inline fn shuffle512(vec: @Vector(64, u8), mask: @Vector(64, u8)) @Vector(64, u8) {
+        return asm ("vpshufb %[mask], %[vec], %[result]"
             : [result] "=v" (-> @Vector(64, u8)),
-            : [vector] "v" (vector),
+            : [vec] "v" (vec),
               [mask] "v" (mask),
+        );
+    }
+
+    /// Returns a bit mask, where 1 is at bits,
+    /// at which `vec` has bytes with the highest bit 1.
+    inline fn vecToBits128(vec: @Vector(16, u8)) u64 {
+        return asm ("pmovmskb %[vec], %[result]"
+            : [result] "=r" (-> u64),
+            : [vec] "v" (vec),
+        );
+    }
+
+    /// Returns a bit mask, where 1 is at bits,
+    /// at which `vec` has bytes with the highest bit 1.
+    inline fn vecToBits256(vec: @Vector(16, u8)) u64 {
+        return asm ("vpmovmskb %[vec], %[result]"
+            : [result] "=r" (-> u64),
+            : [vec] "v" (vec),
         );
     }
 };
