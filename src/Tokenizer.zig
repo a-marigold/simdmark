@@ -3,7 +3,9 @@ const Tokenizer = @This();
 const std = @import("std");
 const Io = std.Io;
 const simd = @import("simd.zig");
-const utils = @import("utils.zig");
+const bits = @import("bits.zig");
+
+// TODO: test the table
 
 /// Contains constant arrays, indexes of which are low or high nibbles
 /// of Markdown chars, and values of which are unique flags of char groups.
@@ -20,7 +22,7 @@ const utils = @import("utils.zig");
 /// - Whitespaces (`\n`, \r`, ` `, `\t`).
 const MARK_CHAR_TABLES = block: {
     var low_nibble_table: [16]u8 = @splat(0);
-    var high_nibble_table: [8]u8 = @splat(0);
+    var high_nibble_table: [16]u8 = @splat(0);
 
     var group_index = 0;
 
@@ -41,8 +43,8 @@ const MARK_CHAR_TABLES = block: {
             const group_flag = 1 << group_index;
 
             for (group) |char| {
-                low_nibble_table[utils.getLowNibble(char)] = group_flag;
-                high_nibble_table[utils.getHighNibble(char)] = group_flag;
+                low_nibble_table[bits.getLowNibble(char)] = group_flag;
+                high_nibble_table[bits.getHighNibble(char)] = group_flag;
             }
 
             control_flag |= group_flag;
@@ -57,8 +59,8 @@ const MARK_CHAR_TABLES = block: {
         for (.{ '-', '+', '*' }) |char| {
             // Bitwise OR `|=` because markers have
             // the same nibbles as some control chars
-            low_nibble_table[utils.getLowNibble(char)] |= list_marker_flag;
-            high_nibble_table[utils.getHighNibble(char)] |= list_marker_flag;
+            low_nibble_table[bits.getLowNibble(char)] |= list_marker_flag;
+            high_nibble_table[bits.getHighNibble(char)] |= list_marker_flag;
         }
     }
 
@@ -69,8 +71,8 @@ const MARK_CHAR_TABLES = block: {
         for ('0'..('9' + 1)) |char| {
             // Bitwise OR `|=` because numbers have
             // the same nibbles as some chars above
-            low_nibble_table[utils.getLowNibble(char)] |= numeric_flag;
-            high_nibble_table[utils.getHighNibble(char)] |= numeric_flag;
+            low_nibble_table[bits.getLowNibble(char)] |= numeric_flag;
+            high_nibble_table[bits.getHighNibble(char)] |= numeric_flag;
         }
     }
 
@@ -87,8 +89,8 @@ const MARK_CHAR_TABLES = block: {
             for (group) |char| {
                 // Bitwise OR `|=` because whitespaces have
                 // the same nibbles as some chars above
-                low_nibble_table[utils.getLowNibble(char)] |= group_flag;
-                high_nibble_table[utils.getHighNibble(char)] |= group_flag;
+                low_nibble_table[bits.getLowNibble(char)] |= group_flag;
+                high_nibble_table[bits.getHighNibble(char)] |= group_flag;
             }
 
             whitespace_flag |= group_flag;
