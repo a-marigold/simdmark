@@ -11,7 +11,7 @@ pub fn expandVec(
     return vec ++ @as(@Vector(new_len - vec.len, u8), @splat(0));
 }
 
-pub const x86 = struct {
+pub const x64 = struct {
     /// Compares each element of the two vectors producing a mask,
     /// where bit at the element index is set to 1 if the elements equal.
     pub inline fn eqlToBits128(a: @Vector(16, u8), b: @Vector(16, u8)) u64 {
