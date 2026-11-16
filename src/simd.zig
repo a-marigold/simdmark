@@ -45,6 +45,34 @@ pub const x64 = struct {
         return ~eqlToBits256(a, b);
     }
 
+    /// Compares each element of the two vectors producing a mask,
+    /// where bit at the element index is set to 1 if the elements equal.
+    pub inline fn eqlToBits512(a: @Vector(64, u8), b: @Vector(64, u8)) u64 {
+        var mask: u64 = undefined;
+        return asm (
+            \\ vpcmpequb %[a], %[b], %[mask]
+            \\ kmovq %[mask], %[result]
+            : [result] "=r" (-> u64),
+              [mask] "=k" (mask),
+            : [a] "v" (a),
+              [b] "v" (b),
+        );
+    }
+
+    /// Compares each element of the two vectors producing a mask,
+    /// where bit at elements' index is set to 1 if the elements don't equal.
+    pub inline fn notEqlToBits512(a: @Vector(64, u8), b: @Vector(64, u8)) u64 {
+        var mask: u64 = undefined;
+        return asm (
+            \\ vpcmpnequb %[a], %[b], %[mask]
+            \\ kmovq %[mask], %[result]
+            : [result] "=r" (-> u64),
+              [mask] "=k" (mask),
+            : [a] "v" (a),
+              [b] "v" (b),
+        );
+    }
+
     /// Does bitwise AND between `a` and `b` and returns a 64-bit mask,
     /// where 0 is at bit indexes where `a[index] & b[index] == 0`
     /// and 1 is at bit indexes where `a[index] & b[index] != 0`
@@ -92,8 +120,8 @@ pub const x64 = struct {
         );
     }
 
-    /// Like `shuffle128`, but uses 0..6 bits of `mask` elements,
-    /// allowing indexing the whole 512-bit vector.
+    /// Like `shuffle256`, but does 4 shuffles in parallel
+    /// for four 16-byte masks and vectors.
     ///
     /// Returns the resulting vector.
     pub inline fn shuffle512(vec: @Vector(64, u8), mask: @Vector(64, u8)) @Vector(64, u8) {
@@ -130,5 +158,6 @@ pub fn getLowNibbles(vec: anytype) @TypeOf(vec) {
 
 /// Returns a vector with only high nibbles of each `vec` byte.
 pub fn getHighNibbles(vec: anytype) @TypeOf(vec) {
+    // TODO: compiler explorer for AVX2
     return vec >> @as(@TypeOf(vec), @splat(4));
 }
