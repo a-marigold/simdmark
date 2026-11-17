@@ -8,7 +8,7 @@ const ARCH = builtin.target.cpu.arch;
 ///
 /// Example:\
 /// `01101111` -> `00100001` (right bits are least significant).
-pub inline fn getMaskStarts(mask: u64) u64 {
+pub inline fn getSequenceStarts(mask: u64) u64 {
     // Example:
     // Mask =                  `0110111100000000`.
     // Shifted = `Mask << 1` = `1101111000000000`
@@ -24,7 +24,7 @@ pub inline fn getMaskStarts(mask: u64) u64 {
 ///
 /// **shifted to the left** means the result doesn't contain
 /// just ends of sequences, but contains ends shifted to the left by 1.
-pub inline fn getMaskEnds(mask: u64, starts: u64) u64 {
+pub inline fn getSequenceEnds(mask: u64, starts: u64) u64 {
     // E.g `mask` is `00011100`, `starts` is `00000100`.
     // Addition carries `starts` bits to the left, forming ends of sequences:
     // `00011100` + `00000100` = `01000000`
@@ -38,7 +38,7 @@ pub inline fn getMaskEnds(mask: u64, starts: u64) u64 {
 /// `starts` is a mask of all starts of sequences from `getMaskStarts`.
 ///
 /// `filtered_ends` is a mask of ends, starts of which to find.
-pub inline fn startsFromMaskEnds(all_ends: u64, filtered_ends: u64, all_starts: u64) u64 {
+pub inline fn startsFromSequenceEnds(all_starts: u64, all_ends: u64, filtered_ends: u64) u64 {
     switch (ARCH) {
         .x86_64 => {
             // If a `filtered_ends` bit set to 1 (i.e, a bit of filtered end),
