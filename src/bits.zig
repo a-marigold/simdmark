@@ -31,16 +31,22 @@ pub inline fn getMaskEnds(mask: u64, starts: u64) u64 {
     return mask + starts;
 }
 
-/// Returns a mask of starts of sequences which correspond to `filtered_ends`.
+/// Returns a mask only those of starts of mask sequences,
+/// which end at ends of `filtered_ends`.
 ///
-/// That means, `filtered_ends` may contain not all
-/// ends of sequences, but only several ones if they are filtered.
-pub inline fn startsFromMaskEnds(mask: u64, filtered_ends: u64, starts: u64) u64 {
+/// `all_ends` is a mask of all ends of sequences from `getMaskEnds`.
+/// `starts` is a mask of all starts of sequences from `getMaskStarts`.
+///
+/// `filtered_ends` is a mask of ends, starts of which to find.
+pub inline fn startsFromMaskEnds(all_ends: u64, filtered_ends: u64, all_starts: u64) u64 {
     switch (ARCH) {
         .x86_64 => {
-            const extracted_filtered_ends = x64.extractBits(mask, filtered_ends);
+            // If a `filtered_ends` bit set to 1 (i.e, a bit of filtered end),
+            // extracts this 1. If the bit is set to 0 (an end is filtered out), extracts 0.
+            // Then `depositBits` puts this 1 or 0 to indexes of starts
+            const extracted_filtered_ends = x64.extractBits(filtered_ends, all_ends);
 
-            const filtered_starts = x64.depositBits(starts, extracted_filtered_ends);
+            const filtered_starts = x64.depositBits(all_starts, extracted_filtered_ends);
             return filtered_starts;
         },
         else => unreachable,
