@@ -1,6 +1,6 @@
 //! Utils for bit masks.
 
-/// For each sequence of `1` bits in an unsigned integer `mask`,
+/// For each sequence of `1` bits in `mask`,
 /// leaves only the first least significant bit of the sequence.
 ///
 /// Example:\
@@ -16,15 +16,15 @@ pub inline fn getStartsOfMaskSequences(mask: u64) u64 {
     return mask & ~(mask << 1);
 }
 
-/// For each sequence of `1` bits in an unsigned integer `mask`,
+/// For each sequence of `1` bits in `mask`,
 /// leaves only the last most significant bit of the sequence, **shifted to the left by 1**.
 ///
-/// *shifted to the left* means the resulting mask doesn't contain just ends of sequences,
-/// but contains ends shifted to the left by 1.
+/// **shifted to the left** means the result doesn't contain
+/// just ends of sequences, but contains ends shifted to the left by 1.
 pub inline fn getEndsOfMaskSequences(mask: u64, mask_starts: u64) u64 {
-    // E.g `starts` is `00000100`, `mask` is `00011100`.
+    // E.g `mask` is `00011100`, `starts` is `00000100`.
     // Addition carries `starts` bits to the left, forming ends of sequences:
-    // `00000100` + `00111000` = `01000000`
+    // `00011100` + `00000100` = `01000000`
     return mask + mask_starts;
 }
 
