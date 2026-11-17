@@ -1,7 +1,10 @@
 //! Utils for bit masks.
 
+const builtin = @import("builtin");
+const ARCH = builtin.target.cpu.arch;
+
 /// For each sequence of `1` bits in `mask`,
-/// leaves only the first least significant bit of the sequence.
+/// leaves only the leftmost bit of the sequence.
 ///
 /// Example:\
 /// `01101111` -> `00100001` (right bits are least significant).
@@ -16,16 +19,32 @@ pub inline fn getMaskStarts(mask: u64) u64 {
     return mask & ~(mask << 1);
 }
 
-/// For each sequence of `1` bits in `mask`,
-/// leaves only the last most significant bit of the sequence, **shifted to the left by 1**.
+/// For each sequence of `1` bits in `mask`, leaves only
+/// the rightmost bit of the sequence, **shifted to the left by 1**.
 ///
 /// **shifted to the left** means the result doesn't contain
 /// just ends of sequences, but contains ends shifted to the left by 1.
-pub inline fn getMaskEnds(mask: u64, mask_starts: u64) u64 {
+pub inline fn getMaskEnds(mask: u64, starts: u64) u64 {
     // E.g `mask` is `00011100`, `starts` is `00000100`.
     // Addition carries `starts` bits to the left, forming ends of sequences:
     // `00011100` + `00000100` = `01000000`
-    return mask + mask_starts;
+    return mask + starts;
+}
+
+/// Returns a mask of starts of sequences which correspond to `filtered_ends`.
+///
+/// That means, `filtered_ends` may contain not all
+/// ends of sequences, but only several ones if they are filtered.
+pub inline fn startsFromMaskEnds(mask: u64, filtered_ends: u64, starts: u64) u64 {
+    switch (ARCH) {
+        .x86_64 => {
+            const extracted_filtered_ends = x64.extractBits(mask, filtered_ends);
+
+            const filtered_starts = x64.depositBits(starts, extracted_filtered_ends);
+            return filtered_starts;
+        },
+        else => unreachable,
+    }
 }
 
 /// Deletes the first trailing 1 from `value`.
@@ -33,8 +52,8 @@ pub inline fn getMaskEnds(mask: u64, mask_starts: u64) u64 {
 /// Examples:
 /// - `0011` -> `0010`
 /// - `0100` -> `0000`
-pub inline fn omitTrailBit(value: u64) u8 {
-    return value & (value - 1);
+pub inline fn omitTrailBit(bits: u64) u8 {
+    return bits & (bits - 1);
 }
 
 /// Returns the low nibble of `byte`.
