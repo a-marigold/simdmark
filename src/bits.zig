@@ -5,7 +5,7 @@
 ///
 /// Example:\
 /// `01101111` -> `00100001` (right bits are least significant).
-pub inline fn getStartsOfMaskSequences(mask: u64) u64 {
+pub inline fn getMaskStarts(mask: u64) u64 {
     // Example:
     // Mask =                  `0110111100000000`.
     // Shifted = `Mask << 1` = `1101111000000000`
@@ -21,7 +21,7 @@ pub inline fn getStartsOfMaskSequences(mask: u64) u64 {
 ///
 /// **shifted to the left** means the result doesn't contain
 /// just ends of sequences, but contains ends shifted to the left by 1.
-pub inline fn getEndsOfMaskSequences(mask: u64, mask_starts: u64) u64 {
+pub inline fn getMaskEnds(mask: u64, mask_starts: u64) u64 {
     // E.g `mask` is `00011100`, `starts` is `00000100`.
     // Addition carries `starts` bits to the left, forming ends of sequences:
     // `00011100` + `00000100` = `01000000`
@@ -46,3 +46,37 @@ pub inline fn getLowNibble(byte: u8) u8 {
 pub inline fn getHighNibble(byte: u8) u8 {
     return byte >> 4;
 }
+
+const x64 = struct {
+    /// Extracts bits from `src` where `mask` has 1
+    /// and packs them to the least significant bits of result.
+    ///
+    /// Example:
+    /// 1. src = 11011011, mask = 10010000
+    /// 2. Extracts **1**10**1**1011
+    /// 3. Result - 00000110
+    inline fn extractBits(src: u64, mask: u64) u64 {
+        return asm ("pext %[mask], %[src], %[result]"
+            : [result] "=x" (-> u64),
+            : [src] "x" (src),
+              [mask] "x" (mask),
+        );
+    }
+
+    /// Deposits values of bits from `extracted_bits`
+    /// to bits of `dests` (destinations), where 1 is placed.
+    ///
+    /// Example:
+    /// 1. dests = 01001001, extracted = 00000110
+    /// 2. The first bit in `extracted` is 0, so the leftmost 1
+    ///    of `dests` is filled with 1. The next two bits are 1,
+    ///    so the next two 1 in `dests` remain unchanged.
+    /// 3. Result - 01001000
+    inline fn depositBits(dests: u64, extracted_bits: u64) u64 {
+        return asm ("pdep %[dests], %[extracted_bits], %[result]"
+            : [result] "=x" (-> u64),
+            : [extracted_bits] "x" (extracted_bits),
+              [dests] "x" (dests),
+        );
+    }
+};
