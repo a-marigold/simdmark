@@ -1,36 +1,42 @@
 //! Utils for bit masks.
 
 const builtin = @import("builtin");
+
 const ARCH = builtin.target.cpu.arch;
 
-/// For each sequence of `1` bits in `mask`,
-/// leaves only the leftmost bit of the sequence.
+/// For each sequence of `1` bits in `mask`, leaves
+/// only the least significant bit of the sequence.
 ///
-/// Example:\
-/// `01101111` -> `00100001` (right bits are least significant).
+/// Example:
+///
+/// `01101111` - Mask\
+/// `00100001` - Result
+/// (right bits are least significant).
 pub inline fn getSequenceStarts(mask: u64) u64 {
-    // Example:
-    // Mask =                  `0110111100000000`.
-    // Shifted = `Mask << 1` = `1101111000000000`
-    // Inverted = `~Shifted` = `0010000111111111`
-    // Result = `Mask & Inverted` = `0110111100000000` &
-    //                              `0010000111111111` =
-    //                              `0010000100000000`
+    // 0110111100000000 M - Mask
+    // 1101111000000000 S = M << 1
+    // 0010000111111111 I = ~S
+    // 0010000100000000 M & I - Result
     return mask & ~(mask << 1);
 }
 
 /// For each sequence of `1` bits in `mask`, leaves only
-/// the rightmost bit of the sequence, **shifted to the left by 1**.
+/// the most significant bit of the sequence, **shifted to the left by 1**.
 ///
-/// **shifted to the left** means the result doesn't contain
-/// just ends of sequences, but contains ends shifted to the left by 1.
+/// Example:
+///
+/// `00011100` - Mask\
+/// `00000100` - Starts\
+/// `00100000` - Ends, but **shifted to the left by 1**
 pub inline fn getSequenceEnds(mask: u64, starts: u64) u64 {
-    // E.g `mask` is `00011100`, `starts` is `00000100`.
-    // Addition carries `starts` bits to the left, forming ends of sequences:
-    // `00011100` + `00000100` = `01000000`
+    // Addition carries `starts` bits to the left:
+    // 00011100 +
+    // 00000100 =
+    // 00100000
     return mask + starts;
 }
 
+// TODO: update docs:
 /// Returns a mask only those of starts of mask sequences,
 /// which end at ends of `filtered_ends`.
 ///
@@ -41,9 +47,10 @@ pub inline fn getSequenceEnds(mask: u64, starts: u64) u64 {
 pub inline fn startsFromSequenceEnds(all_starts: u64, all_ends: u64, filtered_ends: u64) u64 {
     switch (ARCH) {
         .x86_64 => {
-            // If a `filtered_ends` bit set to 1 (i.e, a bit of filtered end),
-            // extracts this 1. If the bit is set to 0 (an end is filtered out), extracts 0.
-            // Then `depositBits` puts this 1 or 0 to indexes of starts
+            // If a `filtered_ends` bit set to 1 (i.e, bit of a filtered end),
+            // extracts this 1. If the bit is set to 0 (i.e, end is filtered out), extracts 0.
+            // Then `depositBits` lays out this 1 and 0 to an index of start,
+            // and if it's 0, the bit of start also becomes filtered out
             const extracted_filtered_ends = x64.extractBits(filtered_ends, all_ends);
 
             const filtered_starts = x64.depositBits(all_starts, extracted_filtered_ends);
@@ -55,13 +62,13 @@ pub inline fn startsFromSequenceEnds(all_starts: u64, all_ends: u64, filtered_en
 
 /// Sets all bits between `starts` and `ends` to 1.
 ///
-/// `ends` must not be just ends of sequences,
+/// `ends` must be not just ends of sequences,
 /// but shifted ends like ones that `getSequenceEnds` returns.
 ///
 /// Example:\
-/// starts = 10000100, ends = 00010001
-///
-/// result - 01110011
+/// `10000100` - Ends\
+/// `00010001` - Starts\
+/// `01110011` - Result
 pub inline fn sequencesFromPositions(starts: u64, ends: u64) u64 {
     return ends - starts;
 }
