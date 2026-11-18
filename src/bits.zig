@@ -53,6 +53,19 @@ pub inline fn startsFromSequenceEnds(all_starts: u64, all_ends: u64, filtered_en
     }
 }
 
+/// Sets all bits between `starts` and `ends` to 1.
+///
+/// `ends` must not be just ends of sequences,
+/// but shifted ends like ones that `getSequenceEnds` returns.
+///
+/// Example:\
+/// starts = 10000100, ends = 00010001
+///
+/// result - 01110011
+pub inline fn sequencesFromPositions(starts: u64, ends: u64) u64 {
+    return ends - starts;
+}
+
 /// Deletes the first trailing 1 from `value`.
 ///
 /// Examples:
