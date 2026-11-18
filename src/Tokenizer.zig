@@ -112,6 +112,57 @@ const MARK_CHAR_TABLES = block: {
     };
 };
 
+/// Returns a bit mask, where bits are
+/// set to 1 at characters of containers.
+///
+/// Example:\
+/// Two blockquotes -> Ordered list (`1.`) ->
+/// Bullet list (`-`) -> Ordered list (`16.`) -> Heading.
+///
+/// `>> 1. - 16. # abc`. The mask is:\
+/// `11011010111000000`
+inline fn getContainersMask(
+    list_markers: u64,
+    digits: u64,
+    /// Mask with ` `, `\t` and `\r`, but without `\n`.
+    whitespaces_no_newline: u64,
+    new_lines: u64,
+    blockquotes: u64,
+    dots: u64,
+) u64 {
+    const all_whitespaces = whitespaces_no_newline | new_lines;
+
+    // Used to check if a dot of ordered list or
+    // a marker of bullet list followed by a whitespace
+    const chars_followed_by_whitespace = all_whitespaces >> 1;
+
+    // TODO: ordered list parens
+    const digit_starts = bits.getSequenceStarts(digits);
+    const digit_ends = bits.getSequenceEnds(digits, digit_starts);
+
+    // Dots preceeded by digits, followed by whitespaces
+    const ordered_list_dots = dots & digit_ends & chars_followed_by_whitespace;
+
+    // Markers followed by whitespaces
+    const bullet_list_markers = list_markers & chars_followed_by_whitespace;
+
+    const ordered_list_digit_starts = bits.startsFromSequenceEnds(
+        digit_starts,
+        digit_ends,
+        ordered_list_dots,
+    );
+    const ordered_list_digits = bits.sequencesFromPositions(ordered_list_digit_starts, ordered_list_dots);
+
+    // Containers that may or may not start with a new line
+    const all_container_chars = blockquotes | ordered_list_digits | ordered_list_dots | bullet_list_markers;
+
+    const prefix_content_starts = bits.getSequenceEnds(all_container_chars | all_whitespaces, new_lines);
+
+    const prefix = bits.sequencesFromPositions(new_lines, prefix_content_starts);
+
+    return prefix & all_container_chars;
+}
+
 /// Classifies Markdown chars of the chunk and returns bit masks of them.
 inline fn getMarkCharMasks(
     comptime chunk_len: comptime_int,
