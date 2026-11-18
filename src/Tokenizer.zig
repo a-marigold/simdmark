@@ -7,8 +7,8 @@ const bits = @import("bits.zig");
 
 // TODO: test the table
 
-/// Contains constant arrays, indexes of which are low or high nibbles
-/// of Markdown chars, and values of which are unique flags of char groups.
+/// Indexes of tables are low or high nibbles of Markdown chars,
+/// and values at indexes are unique flags of char groups.
 ///
 /// Used to classify Markdown chars with vector shuffle instruction.
 ///
@@ -17,10 +17,11 @@ const bits = @import("bits.zig");
 /// Some chars belong to multiple different groups purposely.
 ///
 /// Char groups:
-/// - Control chars of Markdown and raw HTML (`!`, `#`, `(`, `)`, `[`, `]`, `<`, `>`, `*`, `&`).
+/// - Control chars of Markdown and raw HTML (`!`, `#`, `(`, `)`, `[`, `]`, `<`, `>`, `*`, `_`, `&`).
 /// - List markers (`-`, `+`, `*`).
 /// - Digits (`0`..`9`).
-/// - Whitespaces (`\n`, \r`, ` `, `\t`).
+/// - Whitespaces without new line (` `, `\t`, `\r`).\
+///   `\n` isn't needed here for the algorithm.
 const MARK_CHAR_TABLES = block: {
     var low_nibble_table: [16]u8 = @splat(0);
     var high_nibble_table: [16]u8 = @splat(0);
@@ -77,14 +78,14 @@ const MARK_CHAR_TABLES = block: {
         }
     }
 
-    var whitespace_flag = 0;
+    var whitespace_no_newline_flag = 0;
     {
-        const whitespace_groups = .{
-            .{ '\r', '\n', '\t' },
+        const whitespace_no_newline_groups = .{
+            .{ '\r', '\t' },
             .{' '},
         };
 
-        for (whitespace_groups) |group| {
+        for (whitespace_no_newline_groups) |group| {
             const group_flag = 1 << group_index;
 
             for (group) |char| {
@@ -94,7 +95,7 @@ const MARK_CHAR_TABLES = block: {
                 high_nibble_table[bits.getHighNibble(char)] |= group_flag;
             }
 
-            whitespace_flag |= group_flag;
+            whitespace_no_newline_flag |= group_flag;
             group_index += 1;
         }
     }
@@ -107,7 +108,7 @@ const MARK_CHAR_TABLES = block: {
         const CONTROL_FLAG = control_flag;
         const LIST_MARKER_FLAG = list_marker_flag;
         const DIGIT_FLAG = digit_flag;
-        const WHITESPACE_FLAG = whitespace_flag;
+        const WHITESPACE_NO_NEWLINE_FLAG = whitespace_no_newline_flag;
     };
 };
 
@@ -120,7 +121,7 @@ inline fn getMarkCharMasks(
     control: u64,
     list_markers: u64,
     digits: u64,
-    whitespace: u64,
+    whitespaces_no_newline: u64,
 } {
     const char_low_nibble_table: @Vector(16, u8) = MARK_CHAR_TABLES.LOW_NIBBLE_TABLE;
     const char_high_nibble_table: @Vector(16, u8) = MARK_CHAR_TABLES.HIGH_NIBBLE_TABLE;
@@ -128,7 +129,7 @@ inline fn getMarkCharMasks(
     const control_flag_vec: @Vector(chunk_len, u8) = @splat(MARK_CHAR_TABLES.CONTROL_FLAG);
     const list_markers_flag_vec: @Vector(chunk_len, u8) = @splat(MARK_CHAR_TABLES.LIST_MARKER_FLAG);
     const digits_flag_vec: @Vector(chunk_len, u8) = @splat(MARK_CHAR_TABLES.DIGIT_FLAG);
-    const whitespace_flag_vec: @Vector(chunk_len, u8) = @splat(MARK_CHAR_TABLES.WHITESPACE_FLAG);
+    const whitespace_no_newline_flag_vec: @Vector(chunk_len, u8) = @splat(MARK_CHAR_TABLES.WHITESPACE_NO_NEWLINE_FLAG);
 
     switch (comptime chunk_len) {
         16 => {
@@ -141,7 +142,7 @@ inline fn getMarkCharMasks(
                 .control = simd.x64.notEqlToBits128(chars_match & control_flag_vec, @splat(0)),
                 .list_markers = simd.x64.notEqlToBits128(chars_match & list_markers_flag_vec, @splat(0)),
                 .digits = simd.x64.notEqlToBits128(chars_match & digits_flag_vec, @splat(0)),
-                .whitespace = simd.x64.notEqlToBits128(chars_match & whitespace_flag_vec, @splat(0)),
+                .whitespaces_no_newline = simd.x64.notEqlToBits128(chars_match & whitespace_no_newline_flag_vec, @splat(0)),
             };
         },
         32 => {
@@ -158,7 +159,7 @@ inline fn getMarkCharMasks(
                 .control = simd.x64.notEqlToBits256(chars_match & control_flag_vec, @splat(0)),
                 .list_markers = simd.x64.notEqlToBits256(chars_match & list_markers_flag_vec, @splat(0)),
                 .digits = simd.x64.notEqlToBits256(chars_match & digits_flag_vec, @splat(0)),
-                .whitespace = simd.x64.notEqlToBits128(chars_match & whitespace_flag_vec, @splat(0)),
+                .whitespaces_no_newline = simd.x64.notEqlToBits128(chars_match & whitespace_no_newline_flag_vec, @splat(0)),
             };
         },
         64 => {
@@ -178,7 +179,7 @@ inline fn getMarkCharMasks(
                 .control = simd.x64.andToBits512(chars_match, control_flag_vec),
                 .list_markers = simd.x64.andToBits512(chars_match, list_markers_flag_vec),
                 .digits = simd.x64.andToBits512(chars_match, digits_flag_vec),
-                .whitespace = simd.x64.andToBits512(chars_match, whitespace_flag_vec),
+                .whitespaces_no_newline = simd.x64.andToBits512(chars_match, whitespace_no_newline_flag_vec),
             };
         },
     }
@@ -186,17 +187,21 @@ inline fn getMarkCharMasks(
 
 // TODO:
 // min3 = backticks & (backticks >> 1) & (backticks >> 2)
-// starts = bt & ~(bt << 1)
+// starts = backticks & ~(backticks << 1)
 // fence_candidates = m3 & starts & line_start_mask
 
 // TODO:
-// N = new line
-// Containers mask:
-// `N>> 1. - 16. # abc>> 1. - 16. # abc`
-// `01111111111110100011111111111101000`
-// N mask:
-// `10000000000000000000000000000000000`
-// N mask + containers mask:
-// `00000000000001100011111111111101000`
-// Invert the result
-// Inverted & Containers mask: to get containers starting from N
+//  Left bits - least significant, right bits - most significant
+//  `<<` shifts to the most significant bits.
+//  N - new line
+// `N>> 1. - 16. # abc>> 1. - 16. # abcN # abc - `
+//  011011010111000000110110101110000000000000010 C - All container chars
+//  000100101000101000001001010001010000101000101 W - whitespaces without new lines
+//  100000000000000000000000000000000001000000000 N - new lines mask
+//  011111111111101000111111111111010000101000111 CW = C | W
+//  010000000000000000000000000000000000100000000 N = N << 1
+//  000000000000011000111111111111010000011000111 F = CW + N
+//  000000000000010000000000000000000000010000000 F = F & ~CW
+//  000000000000010000000000000000000000010000000 P = F - N
+
+test "`MARK_CHAR_TABLES` has no false-positive chars" {}
